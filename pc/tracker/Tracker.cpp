@@ -1111,11 +1111,10 @@ int Tracker::read_from_file(SDL_RWops *file)
 		DEBUGLOG("STSONG Magic not found in File header!\n");
 	}
 
-	SongSettingsFileLoader *ssfl = new SongSettingsFileLoader(&songsettings);
-  ssfl->load(file);
-  delete ssfl;
+  SongSettingsFileLoader ssfl(&songsettings);
+	FileLoader::loadchunks(file);
 
-	// number of samples
+	/*// number of samples
 	uint8_t numsamples;
 	SDL_RWread(file, &numsamples, 1, 1);
 	for (int i=0; i < numsamples; i++)
@@ -1161,12 +1160,12 @@ int Tracker::read_from_file(SDL_RWops *file)
 		uint8_t idx;
 		SDL_RWread(file, &idx, 1, 1);
 		Instrument *instr = &instruments[idx];
-		/* TODO: store/read the instr # */
+		// TODO: store/read the instr #
 
 		FileLoader::read_str_from_file(file, instr->name, sizeof(Instrument::name));
 
-		/* TODO: Store/Read the instr used. Better yet, calculate it after the
-		 * patterns have been loaded */
+		// TODO: Store/Read the instr used. Better yet, calculate it after the
+		// * patterns have been loaded
 
 		// Time to load instrument info
 		SDL_RWread(file, &instr->vol, 1, 1);
@@ -1202,13 +1201,6 @@ int Tracker::read_from_file(SDL_RWops *file)
 				if (rlecounter)
 					if (--rlecounter >= 0)
 					{
-						/* with the proper reset() written, we won't need to
-						 * rewrite 0 values here */
-						/*pr->note = NOTE_NONE;
-						pr->instr = 0;
-						pr->vol = 0;
-						pr->fx = 0;
-						pr->fxparam = 0;*/
 						continue;
 					}
 
@@ -1224,8 +1216,6 @@ int Tracker::read_from_file(SDL_RWops *file)
 				}
 				else
 				{
-					/* TODO: since reset() written, we won't need to
-					 * rewrite 0 values here ( the else statements will be removed )*/
 					if ( a & ( 1 << CBIT_NOTE ) )
 						SDL_RWread(file, &pr->note, 1, 1);
 					//else pr->note = NOTE_NONE;
@@ -1270,7 +1260,7 @@ int Tracker::read_from_file(SDL_RWops *file)
 		patseq.patterns[patseq.sequence[i]].used++;
 		patseq.num_entries++;
 	}
-
+*/
 	/* HACKS */
 	/* Since the BPM and SPD widgets do not constantly poll (they normally
 	 * only update graphically when manually altered via +/- buttons, we
@@ -1289,6 +1279,7 @@ void Tracker::save_to_file(SDL_RWops *file)
   ssfl->save(file);
   delete ssfl;
 
+/*
 	// number of samples
 	uint8_t numsamples = 0;
 	for (int i=0; i < NUM_SAMPLES; i++)
@@ -1350,10 +1341,9 @@ void Tracker::save_to_file(SDL_RWops *file)
 	// PatternLUT (detailed below comments).
 	uint8_t num_usedpatterns = 0;
 
-	/* NOTE: Unlike the render_to_apu, which only exports patterns that are
-	 * present in the sequencer, we will check here for ANY patterns that
-	 * are not fully blank, whether or not they are present in the sequencer
-	 * */
+	// NOTE: Unlike the render_to_apu, which only exports patterns that are
+	// present in the sequencer, we will check here for ANY patterns that
+	// are not fully blank, whether or not they are present in the sequencer
 	for (uint8_t p=0; p < MAX_PATTERNS; p++)
 	{
 		PatternMeta *pm = &patseq.patterns[p];
@@ -1405,15 +1395,15 @@ void Tracker::save_to_file(SDL_RWops *file)
 
 		SDL_RWwrite(file, &p, 1, 1); // write pattern index
 
-		/*pm->used only says whether this pattern is in the pattern sequencer
-		 * or not. It does not check whether the pattern has any data or not.
-		 * That could be done the long-processing way by checking all rows
-		 * manually for any note, instr, vol, fx, or fxparam entries -- or a
-		 * quick processing map could be used, an array where each bit
-		 * represents any of the above fields being present on a row (8 rows
-		 * represented in a byte. it would quicken the check. TODO: For now,
-		 * patterns that are not present in the sequencer will BE LOST!!! In
-		 * the spirit of rapid prototyping, I don't care. Fix it later */
+		//pm->used only says whether this pattern is in the pattern sequencer
+		// * or not. It does not check whether the pattern has any data or not.
+		// * That could be done the long-processing way by checking all rows
+		// * manually for any note, instr, vol, fx, or fxparam entries -- or a
+		// * quick processing map could be used, an array where each bit
+		// * represents any of the above fields being present on a row (8 rows
+		// * represented in a byte. it would quicken the check. TODO: For now,
+		// * patterns that are not present in the sequencer will BE LOST!!! In
+		// * the spirit of rapid prototyping, I don't care. Fix it later
 
 		Pattern *pattern = &pm->p;
 
@@ -1426,8 +1416,8 @@ void Tracker::save_to_file(SDL_RWops *file)
 				int ttrr;
 				PatternRow *pr = &pattern->trackrows[t][tr];
 				uint8_t cbyte = 0, rlebyte;
-				/* Lookahead: how many empty rows from this one until the next
-				 * filled row? If there's only 1 empty row, use RLE_ONLY1 */
+				// Lookahead: how many empty rows from this one until the next
+				// filled row? If there's only 1 empty row, use RLE_ONLY1
 //#define PATROW_EMPTY(pr) ( pr->note == 0 && pr->instr == 0 && pr->vol == 0 && pr->fx == 0 && pr->fxparam == 0 )
 				for (ttrr=tr+1; ttrr < pattern->len; ttrr++)
 				{
@@ -1436,10 +1426,7 @@ void Tracker::save_to_file(SDL_RWops *file)
 					{
 						// we found a filled row or we made it to the end of pattern
 						ttrr -= ( (PATROW_EMPTY(row)) ? 0 : 1);
-						int num_empty = ttrr - tr; /* HACK: the +1 is actually to compensate for the way
-																					apu driver code is handled, it's just to help the loop portion of the code stay clean
-																					on APU side. but as an lsr value it should be disregarded. The actual
-																					APU portion of code is anything using an rlecounter(s) (ReadPTRacks, QuickReadPTrack)*/
+						int num_empty = ttrr - tr;
 						if (num_empty == 0)
 							break;
 						else if (num_empty == 1)
@@ -1484,8 +1471,8 @@ void Tracker::save_to_file(SDL_RWops *file)
 					cbyte |= ( 1<<CBIT );
 					SDL_RWwrite(file, &cbyte, 1, 1);
 				}
-				/* we should now write the actual byte for any data that is
-				 * present */
+				// we should now write the actual byte for any data that is
+				// present
 				if (pr->note)
 					SDL_RWwrite(file, &pr->note, 1, 1);
 				if (pr->instr)
@@ -1507,7 +1494,7 @@ void Tracker::save_to_file(SDL_RWops *file)
 
 	// PATTERN SEQUENCER START
 	for (int i=0; i < patseq.num_entries; i++)
-		SDL_RWwrite(file, &patseq.sequence[i], 1, 1);
+		SDL_RWwrite(file, &patseq.sequence[i], 1, 1); */
 }
 /* Define the Packed Pattern Format.
  * For this, I am electing to use the XM packing scheme, with the addition

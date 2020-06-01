@@ -33,10 +33,17 @@ public:
     NUM_CHUNKIDS
   };
   static std::unordered_map<uint8_t, FileLoader *> ChunkIdMap;
+  static size_t loadchunks(SDL_RWops *file);
 
-  virtual int load(SDL_RWops *file);
-  virtual int save(SDL_RWops *file)=0;
+  virtual size_t load(SDL_RWops *file, size_t chunksize);
+  virtual size_t save(SDL_RWops *file)=0;
   uint8_t chunkid;
+
+  static size_t read (struct SDL_RWops* context,
+                  void*             ptr,
+                  size_t            size,
+                  size_t            maxnum,
+                  size_t            *bytecount);
 
   static size_t write (struct SDL_RWops* context, const void* ptr, size_t size, size_t num,
                         uint32_t *chunksize_counter);

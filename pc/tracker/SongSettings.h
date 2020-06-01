@@ -74,8 +74,8 @@ class SongSettingsFileLoader : public FileLoader
 {
 public:
   SongSettingsFileLoader(struct SongSettings *ss);
-  int load(SDL_RWops *file);
-  int save(SDL_RWops *file);
+  size_t load(SDL_RWops *file, size_t chunksize);
+  size_t save(SDL_RWops *file);
 
   enum SubChunkID {
     songtitle=0,

@@ -81,103 +81,113 @@ SongSettingsFileLoader::SongSettingsFileLoader(struct SongSettings *ss) :
   songsettings(ss), FileLoader(ChunkID::SongSettings)
 {}
 
-int SongSettingsFileLoader::load(SDL_RWops *file)
+size_t SongSettingsFileLoader::load(SDL_RWops *file, size_t chunksize)
 {
-  uint8_t subchunkid;
-  uint16_t subchunksize;
-  SDL_RWread(file, &subchunkid, 1, 1);
-  SDL_RWread(file, &subchunksize, 2, 1);
+  size_t maxread = 0;
 
-  switch (subchunkid)
+  while (maxread < chunksize)
   {
-    case SubChunkID::songtitle:
-      subchunksize -= FileLoader::read_str_from_file2(file, songsettings->song_title_str, subchunksize, SongSettings::SONGTITLE_SIZE);
-    break;
-    case SubChunkID::bpmspd:
+    uint8_t subchunkid;
+    uint16_t subchunksize;
+    read(file, &subchunkid, 1, 1, &maxread);
+    read(file, &subchunksize, 2, 1, &maxread);
+
+    switch (subchunkid)
     {
-      size_t minimum_chunksize = 2;
-      if (subchunksize > minimum_chunksize)
+      case SubChunkID::songtitle:
       {
-        DEBUGLOG("Chunk is bigger than expected.\n");
+        size_t bytesread = FileLoader::read_str_from_file2(file, songsettings->song_title_str, subchunksize, SongSettings::SONGTITLE_SIZE);
+        subchunksize -= bytesread;
+        maxread += bytesread;
       }
-      else if (subchunksize < minimum_chunksize)
+      break;
+      case SubChunkID::bpmspd:
       {
-        DEBUGLOG("Chunk is smaller than expected. Setting to default\n");
-        songsettings->bpm = SongSettings::DEFAULT_BPM;
-        songsettings->spd = SongSettings::DEFAULT_SPD;
-        break;
-      }
+        size_t minimum_chunksize = 2;
+        if (subchunksize > minimum_chunksize)
+        {
+          DEBUGLOG("Chunk is bigger than expected.\n");
+        }
+        else if (subchunksize < minimum_chunksize)
+        {
+          DEBUGLOG("Chunk is smaller than expected. Setting to default\n");
+          songsettings->bpm = SongSettings::DEFAULT_BPM;
+          songsettings->spd = SongSettings::DEFAULT_SPD;
+          break;
+        }
 
-      uint16_t bpmspd;
-      size_t rc = SDL_RWread(file, &bpmspd, 2, 1);
-      if (rc == 0)
-      {
-        DEBUGLOG("Could not read from file: %s\n", SDL_GetError());
-        return -1;
-      }
-      subchunksize -= 2;
+        uint16_t bpmspd;
+        size_t rc = read(file, &bpmspd, 2, 1, &maxread);
+        if (rc == 0)
+        {
+          DEBUGLOG("Could not read from file: %s\n", SDL_GetError());
+          return -1;
+        }
+        subchunksize -= 2;
 
-      // Check for valid BPM/SPD
-      songsettings->bpm = bpmspd >> 6;
-      if (songsettings->bpm < SongSettings::MIN_BPM || songsettings->bpm > SongSettings::MAX_BPM)
-      {
-        DEBUGLOG("Invalid BPM: %d. Setting to default %d\n", songsettings->bpm, SongSettings::DEFAULT_BPM);
-        songsettings->bpm = SongSettings::DEFAULT_BPM;
-      }
+        // Check for valid BPM/SPD
+        songsettings->bpm = bpmspd >> 6;
+        if (songsettings->bpm < SongSettings::MIN_BPM || songsettings->bpm > SongSettings::MAX_BPM)
+        {
+          DEBUGLOG("Invalid BPM: %d. Setting to default %d\n", songsettings->bpm, SongSettings::DEFAULT_BPM);
+          songsettings->bpm = SongSettings::DEFAULT_BPM;
+        }
 
-      songsettings->spd = (uint8_t)(bpmspd & 0b111111);
-      if (songsettings->spd < SongSettings::MIN_SPD || songsettings->spd > SongSettings::MAX_SPD)
-      {
-        DEBUGLOG("Invalid SPD: %d. Setting to default %d\n", songsettings->spd, SongSettings::DEFAULT_SPD);
-        songsettings->spd = SongSettings::DEFAULT_SPD;
+        songsettings->spd = (uint8_t)(bpmspd & 0b111111);
+        if (songsettings->spd < SongSettings::MIN_SPD || songsettings->spd > SongSettings::MAX_SPD)
+        {
+          DEBUGLOG("Invalid SPD: %d. Setting to default %d\n", songsettings->spd, SongSettings::DEFAULT_SPD);
+          songsettings->spd = SongSettings::DEFAULT_SPD;
+        }
       }
+      break;
+      case SubChunkID::volandecho:
+      {
+        size_t minimum_chunksize = 4;
+        if (subchunksize > minimum_chunksize)
+        {
+          DEBUGLOG("Chunk is bigger than expected.\n");
+        }
+        else if (subchunksize < minimum_chunksize)
+        {
+          DEBUGLOG("Chunk is smaller than expected. Setting to default\n");
+          songsettings->setdefault_volandecho();
+          break;
+        }
+        uint8_t byte;
+        /* mvol */
+        read(file, &byte, 1, 1, &maxread);
+        songsettings->mvol = byte;
+        /* evol */
+        read(file, &byte, 1, 1, &maxread);
+        songsettings->evol = byte;
+        /* edl */
+        read(file, &byte, 1, 1, &maxread);
+        songsettings->edl = byte;
+        /* efb */
+        read(file, &byte, 1, 1, &maxread);
+        songsettings->efb = byte;
+
+        subchunksize -= 4;
+      }
+      break;
+      /* TODO: fir */
+      default:
+        DEBUGLOG("Unknown SubChunkID: %d. skipping over..\n", subchunkid);
+      break;
     }
-    break;
-    case SubChunkID::volandecho:
+
+    /* Skip the unrecognized part of the chunk */
+    if (subchunksize)
     {
-      size_t minimum_chunksize = 4;
-      if (subchunksize > minimum_chunksize)
-      {
-        DEBUGLOG("Chunk is bigger than expected.\n");
-      }
-      else if (subchunksize < minimum_chunksize)
-      {
-        DEBUGLOG("Chunk is smaller than expected. Setting to default\n");
-        songsettings->setdefault_volandecho();
-        break;
-      }
-      uint8_t byte;
-      /* mvol */
-      SDL_RWread(file, &byte, 1, 1);
-      songsettings->mvol = byte;
-      /* evol */
-      SDL_RWread(file, &byte, 1, 1);
-      songsettings->evol = byte;
-      /* edl */
-      SDL_RWread(file, &byte, 1, 1);
-      songsettings->edl = byte;
-      /* efb */
-      SDL_RWread(file, &byte, 1, 1);
-      songsettings->efb = byte;
-
-      subchunksize -= 4;
+      DEBUGLOG("skipping past %d unknown bytes of chunk\n", subchunksize);
+      SDL_RWseek(file, subchunksize, RW_SEEK_CUR);
+      maxread += subchunksize;
     }
-    break;
-    /* TODO: fir */
-    default:
-      DEBUGLOG("Unknown SubChunkID: %d. skipping over..\n", subchunkid);
-    break;
-  }
-
-  /* Skip the unrecognized part of the chunk */
-  if (subchunksize)
-  {
-    DEBUGLOG("skipping past %d unknown bytes of chunk\n", subchunksize);
-    SDL_RWseek(file, subchunksize, RW_SEEK_CUR);
   }
 }
 
-int SongSettingsFileLoader::save(SDL_RWops *file)
+size_t SongSettingsFileLoader::save(SDL_RWops *file)
 {
   uint8_t byte;
   uint16_t word;

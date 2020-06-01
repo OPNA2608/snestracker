@@ -10,12 +10,45 @@ FileLoader::FileLoader(uint8_t chunkid) : chunkid(chunkid)
   ChunkIdMap[chunkid] = this;
 }
 
+size_t FileLoader::loadchunks(SDL_RWops *file)
+{
+  uint8_t chunkid;
+  uint16_t chunksize;
+
+  while (1)
+  {
+    if (SDL_RWread(file, &chunkid, 1, 1) == 0)
+      break;
+    if (SDL_RWread(file, &chunksize, 2, 1) == 0)
+      break;
+
+    ChunkIdMap[chunkid]->load(file, chunksize);
+  }
+
+  return 0;
+}
+
 /* TODO from Tracker file loading routine: Handle chunkids that the app
  * doesn't recognize safely - skip them. */
 
-int FileLoader::load(SDL_RWops *file)
+size_t FileLoader::load(SDL_RWops *file, size_t chunksize)
 {
+  DEBUGLOG("FileLoader::load()");
   return 0;
+}
+
+size_t FileLoader::read (struct SDL_RWops* context,
+                  void*             ptr,
+                  size_t            size,
+                  size_t            maxnum,
+                  size_t            *bytecount)
+{
+  size_t ret = SDL_RWread(context, ptr, size, maxnum);
+  if (ret != maxnum)
+  {
+    DEBUGLOG("Couldn't fully read data; Read %d of %d bytes\n", ret * size, maxnum * size);
+  }
+  *bytecount += ret * size;
 }
 
 size_t FileLoader::write (struct SDL_RWops* context, const void* ptr, size_t size, size_t num,
