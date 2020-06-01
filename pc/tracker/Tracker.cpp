@@ -1090,9 +1090,9 @@ void Tracker::reset()
 	main_window.bsawidget.updatebpm();
 	main_window.bsawidget.updatespd();
 
-  /*::tracker->patseq.num_entries = 1;
+  ::tracker->patseq.num_entries = 1;
   ::tracker->patseq.sequence[0] = 0;
-  ::tracker->patseq.patterns[0].used = 1;*/
+  ::tracker->patseq.patterns[0].used = 1;
 }
 
 /* TODO: Add sanitization where necessary */
@@ -1117,7 +1117,9 @@ int Tracker::read_from_file(SDL_RWops *file)
 
   SongSettingsFileLoader *ssfl = new SongSettingsFileLoader(&songsettings);
   SampleFileLoader *sfl = new SampleFileLoader(samples);
+  InstrumentFileLoader *ifl = new InstrumentFileLoader(instruments);
   FileLoader::loadchunks(file);
+  delete ifl;
   delete sfl;
   delete ssfl;
 
@@ -1253,37 +1255,10 @@ void Tracker::save_to_file(SDL_RWops *file)
   ssfl->save(file);
   delete ssfl;
 
+  InstrumentFileLoader *ifl = new InstrumentFileLoader(instruments);
+  ifl->save(file);
+  delete ifl;
 /*
-	uint8_t numinstr = 0;
-	for (uint16_t i=0; i < NUM_INSTR; i++)
-	{
-		Instrument *instr = &instruments[i];
-		if (instr->used == 0)
-			continue;
-
-		numinstr++;
-	}
-	SDL_RWwrite(file, &numinstr, 1, 1);
-
-	for (uint16_t i=0; i < NUM_INSTR; i++)
-	{
-		Instrument *instr = &instruments[i];
-		if (instr->used == 0)
-			continue;
-
-		SDL_RWwrite(file, &i, 1, 1); // write instr index (only 1 byte)
-		SDL_RWwrite(file, instr->name, strlen(instr->name) + 1, 1);
-		// Time to load instrument info
-		SDL_RWwrite(file, &instr->vol, 1, 1);
-		SDL_RWwrite(file, &instr->pan, 1, 1);
-		SDL_RWwrite(file, &instr->srcn, 1, 1);
-		SDL_RWwrite(file, &instr->adsr.adsr1, 1, 1);
-		SDL_RWwrite(file, &instr->adsr.adsr2, 1, 1);
-		SDL_RWwrite(file, &instr->semitone_offset, 1, 1);
-		SDL_RWwrite(file, &instr->finetune, 1, 1);
-	}
-	// INSTRUMENTS END
-
 	// PATTERNS
 	// First calculate the number of used patterns in the song. This is not
 	// sequence length, but the number of unique patterns. With that length

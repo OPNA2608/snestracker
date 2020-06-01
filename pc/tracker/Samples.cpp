@@ -54,7 +54,7 @@ void Sample::dec_finetune()
 
 
 SampleFileLoader::SampleFileLoader(struct Sample *s) :
-  samples(s), FileLoader(ChunkID::Sample)
+  FileLoader(ChunkID::Sample), samples(s)
 {}
 
 size_t SampleFileLoader::load(SDL_RWops *file, size_t chunksize)
@@ -144,7 +144,6 @@ size_t SampleFileLoader::load(SDL_RWops *file, size_t chunksize)
         subchunksize -= nb_read_total;
       }
       break;
-      /* TODO: fir */
       default:
         DEBUGLOG("\tUnknown SubChunkID: %d. skipping over..\n", subchunkid);
       break;
@@ -187,8 +186,11 @@ size_t SampleFileLoader::save(SDL_RWops *file)
     byte = SubChunkID::name;
     write(file, &byte, 1, 1, &chunklen);
     word = strlen(samples[i].name);
-    write(file, &word, 2, 1, &chunklen);
-    write(file, samples[i].name,  word, 1, &chunklen);
+    if (word > 0)
+    {
+      write(file, &word, 2, 1, &chunklen);
+      write(file, samples[i].name,  word, 1, &chunklen);
+    }
 
     byte = SubChunkID::brr;
     write(file, &byte, 1, 1, &chunklen);
