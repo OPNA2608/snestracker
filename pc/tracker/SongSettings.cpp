@@ -85,6 +85,8 @@ size_t SongSettingsFileLoader::load(SDL_RWops *file, size_t chunksize)
 {
   size_t maxread = 0;
 
+  DEBUGLOG("Loading SongSettings; ");
+
   while (maxread < chunksize)
   {
     uint8_t subchunkid;
@@ -96,6 +98,7 @@ size_t SongSettingsFileLoader::load(SDL_RWops *file, size_t chunksize)
     {
       case SubChunkID::songtitle:
       {
+        DEBUGLOG("\tSubChunkID::songtitle");
         size_t bytesread = FileLoader::read_str_from_file2(file, songsettings->song_title_str, subchunksize, SongSettings::SONGTITLE_SIZE);
         subchunksize -= bytesread;
         maxread += bytesread;
@@ -103,14 +106,15 @@ size_t SongSettingsFileLoader::load(SDL_RWops *file, size_t chunksize)
       break;
       case SubChunkID::bpmspd:
       {
+        DEBUGLOG("\tSubChunkID::bpmspd\n");
         size_t minimum_chunksize = 2;
         if (subchunksize > minimum_chunksize)
         {
-          DEBUGLOG("Chunk is bigger than expected.\n");
+          DEBUGLOG("\t\tSubChunk %d is bigger than expected.\n", subchunkid);
         }
         else if (subchunksize < minimum_chunksize)
         {
-          DEBUGLOG("Chunk is smaller than expected. Setting to default\n");
+          DEBUGLOG("\t\tSubChunk %d is smaller than expected. Setting to default\n", subchunkid);
           songsettings->bpm = SongSettings::DEFAULT_BPM;
           songsettings->spd = SongSettings::DEFAULT_SPD;
           break;
@@ -120,7 +124,7 @@ size_t SongSettingsFileLoader::load(SDL_RWops *file, size_t chunksize)
         size_t rc = read(file, &bpmspd, 2, 1, &maxread);
         if (rc == 0)
         {
-          DEBUGLOG("Could not read from file: %s\n", SDL_GetError());
+          DEBUGLOG("\t\tCould not read from file: %s\n", SDL_GetError());
           return -1;
         }
         subchunksize -= 2;
@@ -129,28 +133,29 @@ size_t SongSettingsFileLoader::load(SDL_RWops *file, size_t chunksize)
         songsettings->bpm = bpmspd >> 6;
         if (songsettings->bpm < SongSettings::MIN_BPM || songsettings->bpm > SongSettings::MAX_BPM)
         {
-          DEBUGLOG("Invalid BPM: %d. Setting to default %d\n", songsettings->bpm, SongSettings::DEFAULT_BPM);
+          DEBUGLOG("\t\tInvalid BPM: %d. Setting to default %d\n", songsettings->bpm, SongSettings::DEFAULT_BPM);
           songsettings->bpm = SongSettings::DEFAULT_BPM;
         }
 
         songsettings->spd = (uint8_t)(bpmspd & 0b111111);
         if (songsettings->spd < SongSettings::MIN_SPD || songsettings->spd > SongSettings::MAX_SPD)
         {
-          DEBUGLOG("Invalid SPD: %d. Setting to default %d\n", songsettings->spd, SongSettings::DEFAULT_SPD);
+          DEBUGLOG("\t\tInvalid SPD: %d. Setting to default %d\n", songsettings->spd, SongSettings::DEFAULT_SPD);
           songsettings->spd = SongSettings::DEFAULT_SPD;
         }
       }
       break;
       case SubChunkID::volandecho:
       {
+        DEBUGLOG("\tSubChunkID::volandecho");
         size_t minimum_chunksize = 4;
         if (subchunksize > minimum_chunksize)
         {
-          DEBUGLOG("Chunk is bigger than expected.\n");
+          DEBUGLOG("\t\tSubChunk %d is bigger than expected.\n", subchunkid);
         }
         else if (subchunksize < minimum_chunksize)
         {
-          DEBUGLOG("Chunk is smaller than expected. Setting to default\n");
+          DEBUGLOG("\t\tSubChunk %d is smaller than expected. Setting to default\n", subchunkid);
           songsettings->setdefault_volandecho();
           break;
         }
@@ -173,14 +178,14 @@ size_t SongSettingsFileLoader::load(SDL_RWops *file, size_t chunksize)
       break;
       /* TODO: fir */
       default:
-        DEBUGLOG("Unknown SubChunkID: %d. skipping over..\n", subchunkid);
+        DEBUGLOG("\tUnknown SubChunkID: %d. skipping over..\n", subchunkid);
       break;
     }
 
     /* Skip the unrecognized part of the chunk */
     if (subchunksize)
     {
-      DEBUGLOG("skipping past %d unknown bytes of chunk\n", subchunksize);
+      DEBUGLOG("\tskipping past %d unknown bytes of chunk\n", subchunksize);
       SDL_RWseek(file, subchunksize, RW_SEEK_CUR);
       maxread += subchunksize;
     }

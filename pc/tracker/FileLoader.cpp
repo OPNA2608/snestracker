@@ -17,12 +17,26 @@ size_t FileLoader::loadchunks(SDL_RWops *file)
 
   while (1)
   {
+    DEBUGLOG("Top-Level LoadChunk\n");
     if (SDL_RWread(file, &chunkid, 1, 1) == 0)
+    {
+      DEBUGLOG("EOF\n");
       break;
+    }
     if (SDL_RWread(file, &chunksize, 2, 1) == 0)
+    {
+      DEBUGLOG("EOF\n");
       break;
+    }
 
-    ChunkIdMap[chunkid]->load(file, chunksize);
+    DEBUGLOG("Chunk: %d, size: %d; ", chunkid, chunksize);
+    if (ChunkIdMap.find(chunkid) == ChunkIdMap.end())
+    {
+      DEBUGLOG("Unrecognized chunk, skipping over.\n");
+      SDL_RWseek(file, chunksize, RW_SEEK_CUR);
+    }
+    else
+      ChunkIdMap[chunkid]->load(file, chunksize);
   }
 
   return 0;
@@ -46,9 +60,10 @@ size_t FileLoader::read (struct SDL_RWops* context,
   size_t ret = SDL_RWread(context, ptr, size, maxnum);
   if (ret != maxnum)
   {
-    DEBUGLOG("Couldn't fully read data; Read %d of %d bytes\n", ret * size, maxnum * size);
+    DEBUGLOG("Couldn't fully read data; Read %lu of %lu bytes\n", ret * size, maxnum * size);
   }
   *bytecount += ret * size;
+  return ret;
 }
 
 size_t FileLoader::write (struct SDL_RWops* context, const void* ptr, size_t size, size_t num,
@@ -57,9 +72,10 @@ size_t FileLoader::write (struct SDL_RWops* context, const void* ptr, size_t siz
   size_t ret = SDL_RWwrite(context, ptr, size, num);
   if (ret != num)
   {
-    DEBUGLOG("Couldn't fully write data; Wrote %d of %d bytes\n", ret * size, num * size);
+    DEBUGLOG("Couldn't fully write data; Wrote %lu of %lu bytes\n", ret * size, num * size);
   }
   *chunksize_counter += ret * size;
+  return ret;
 }
 size_t FileLoader::write (struct SDL_RWops* context, const void* ptr, size_t size, size_t num,
                         uint16_t *chunksize_counter)
@@ -67,9 +83,10 @@ size_t FileLoader::write (struct SDL_RWops* context, const void* ptr, size_t siz
   size_t ret = SDL_RWwrite(context, ptr, size, num);
   if (ret != num)
   {
-    DEBUGLOG("Couldn't fully write data; Wrote %d of %d bytes\n", ret * size, num * size);
+    DEBUGLOG("Couldn't fully write data; Wrote %lu of %lu bytes\n", ret * size, num * size);
   }
   *chunksize_counter += ret * size;
+  return ret;
 }
 
 // Now with bounds checking :D

@@ -1089,6 +1089,10 @@ void Tracker::reset()
 	 * need to manually update it */
 	main_window.bsawidget.updatebpm();
 	main_window.bsawidget.updatespd();
+
+  /*::tracker->patseq.num_entries = 1;
+  ::tracker->patseq.sequence[0] = 0;
+  ::tracker->patseq.patterns[0].used = 1;*/
 }
 
 /* TODO: Add sanitization where necessary */
@@ -1111,47 +1115,13 @@ int Tracker::read_from_file(SDL_RWops *file)
 		DEBUGLOG("STSONG Magic not found in File header!\n");
 	}
 
-  SongSettingsFileLoader ssfl(&songsettings);
-	FileLoader::loadchunks(file);
+  SongSettingsFileLoader *ssfl = new SongSettingsFileLoader(&songsettings);
+  SampleFileLoader *sfl = new SampleFileLoader(samples);
+  FileLoader::loadchunks(file);
+  delete sfl;
+  delete ssfl;
 
-	/*// number of samples
-	uint8_t numsamples;
-	SDL_RWread(file, &numsamples, 1, 1);
-	for (int i=0; i < numsamples; i++)
-	{
-		uint8_t idx;
-		SDL_RWread(file, &idx, 1, 1);
-
-		Sample *s = &samples[idx];
-		FileLoader::read_str_from_file(file, s->name, sizeof(Sample::name));
-
-		SDL_RWread(file, &samples[idx].rel_loop, 2, 1);
-
-		uint16_t brrsize;
-		SDL_RWread(file, &brrsize, 2, 1);
-		Brr *brr = (Brr *) malloc(brrsize);
-
-		Sint64 nb_read_total = 0, nb_read = 1;
-		char* buf = (char *)brr;
-		while (nb_read_total < brrsize && nb_read != 0) {
-			nb_read = SDL_RWread(file, buf, 1, (brrsize - nb_read_total));
-			nb_read_total += nb_read;
-			buf += nb_read;
-		}
-
-		if (nb_read_total != brrsize)
-		{
-			DEBUGLOG("Error Reading Sample %d!?\n", i);
-			free(brr);
-			return -1;
-		}
-
-		if (s->brr != NULL)
-			free(s->brr);
-
-		s->brr = brr;
-		s->brrsize = brrsize;
-	}
+	/*
 
 	uint8_t numinstr = 0;
 	SDL_RWread(file, &numinstr, 1, 1);
@@ -1279,31 +1249,11 @@ void Tracker::save_to_file(SDL_RWops *file)
   ssfl->save(file);
   delete ssfl;
 
+  SampleFileLoader *sfl = new SampleFileLoader(samples);
+  ssfl->save(file);
+  delete ssfl;
+
 /*
-	// number of samples
-	uint8_t numsamples = 0;
-	for (int i=0; i < NUM_SAMPLES; i++)
-	{
-		if (samples[i].brr == NULL)
-			continue;
-		numsamples++;
-	}
-	SDL_RWwrite(file, &numsamples, 1, 1);
-	// for each sample, write number of bytes as uint16_t followed by the
-	// bytes
-	for (uint16_t i=0; i < NUM_SAMPLES; i++)
-	{
-		if (samples[i].brr == NULL)
-			continue;
-
-		uint16_t size = samples[i].brrsize;
-		SDL_RWwrite(file, &i, 1, 1); // write sample index (only 1 byte)
-		SDL_RWwrite(file, samples[i].name, strlen(samples[i].name) + 1, 1);
-		SDL_RWwrite(file, &samples[i].rel_loop, 2, 1);
-		SDL_RWwrite(file, &size, 2, 1);
-		SDL_RWwrite(file, samples[i].brr, size, 1);
-	}
-
 	uint8_t numinstr = 0;
 	for (uint16_t i=0; i < NUM_INSTR; i++)
 	{
