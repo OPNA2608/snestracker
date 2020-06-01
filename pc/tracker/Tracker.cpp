@@ -919,42 +919,53 @@ easily extendable when new features and components are added.
 All integers spanning more than 1 byte are stored little-endian unless
 otherwise noted.
 
-The following fields start the file, with no ChunkID
+The following field starts the file with no ChunkID
 
 "STSONG"   -- file magic header string. not null terminated
-Song Title -- null terminated string
-bpm/spd    -- 16-bit: (BPM << 6) | Spd
-                (0-300)   (1-32?)
-              ----BPM---- ==SPD==
-              0 0000 0000 0000 00
 
+Then each section of data is comprised of a 1-byte ID, an ID-specific length field, followed
+by the actual data corresponding to that ID.
+
+GlobalID
+  Song Title -- null terminated string (Software may impose length limit)
+  bpm/spd    -- 16-bit: (BPM << 6) | Spd
+                  (0-300)   (1-32?)
+                ----BPM---- ==SPD==
+                0 0000 0000 0000 00
+  [EXTENDABLE]
 
 SongSettingsID
-  COREID:
+  CoreID:
     mvol       -- 1 byte
     evol       -- 1 byte
     edl        -- 1 byte
     efb        -- 1 byte
+    [EXTENDABLE]
+  [EXTENDABLE]
 
 SamplesID
-  #samples   -- 1 byte
+  num_samples   -- 1 byte
   What follows is sequential sample data of the follow format:
   SampleID
-    COREID
+    CoreID
       index      -- 1 byte
-      name       -- null-terminated string
+      name       -- null-terminated string (Software may impose length limit)
       brrsize    -- size in bytes of following brr sample
       brrsample
+      [EXTENDABLE]
     LOOP_FINETUNE_ID
       TODO: Add rel_loop, finetune settings here
+      [EXTENDABLE]
+    [EXTENDABLE]
+  [EXTENDABLE]
 
 InstrumentsID
-  #instruments -- 1 byte
+  num_instruments -- 1 byte
   What follows are sequential instrument data of the following nature:
   InstrumentID
-    COREID
+    CoreID
       index      -- 1 byte
-      Name       -- null terminated string
+      Name       -- null terminated string (Software may impose length limit)
       vol        -- 1 byte
       pan        -- "
       srcn       -- "
@@ -962,19 +973,27 @@ InstrumentsID
       adsr2      -- "
       semitone_offset -- "
       finetune   -- "
+      [EXTENDABLE]
+    [EXTENDABLE]
+  [EXTENDABLE]
 
 PatternsID
-  #Patterns  -- 1 byte
+  num_Patterns  -- 1 byte
   What follows are sequential pattern data of the following format:
   PatternID
-    COREID
+    CoreID
       index      -- 1 byte
       len        -- 1 byte: number of rows
       Compressed Pattern Data for 8 tracks
+      [EXTENDABLE]
+    [EXTENDABLE]
+  [EXTENDABLE]
 
 PatSeqID
   Pattern Sequencer Entries -- an arbitrary number of byte sized pattern indices
-  that will make up the pattern sequencer. End is signaled by EOF (TODO: end signal by negative value, or $FF)
+  that will make up the pattern sequencer. End is signaled by EOF (or $FF)
+
+[EXTENDABLE]
 */
 
 /*
@@ -1092,30 +1111,9 @@ int Tracker::read_from_file(SDL_RWops *file)
 		DEBUGLOG("STSONG Magic not found in File header!\n");
 	}
 
-	// Read Song title until NULL is read in
-	// corner case: no title == 0
-	FileLoader::read_str_from_file(file, songsettings.song_title_str, SongSettings::SONGTITLE_SIZE);
-
-	uint16_t bpmspd;
-	rc = SDL_RWread(file, &bpmspd, 2, 1);
-	if (rc == 0)
-	{
-		DEBUGLOG("Could not read from file: %s\n", SDL_GetError());
-		return -1;
-	}
-	// Check for valid BPM/SPD
-	songsettings.bpm = bpmspd >> 6;
-	if (songsettings.bpm < SongSettings::MIN_BPM || songsettings.bpm > SongSettings::MAX_BPM)
-	{
-		DEBUGLOG("Invalid BPM: %d. Setting to default %d\n", songsettings.bpm, SongSettings::DEFAULT_BPM);
-		songsettings.bpm = SongSettings::DEFAULT_BPM;
-	}
-	songsettings.spd = (uint8_t)(bpmspd & 0b111111);
-	if (songsettings.spd < SongSettings::MIN_SPD || songsettings.spd > SongSettings::MAX_SPD)
-	{
-		DEBUGLOG("Invalid SPD: %d. Setting to default %d\n", songsettings.spd, SongSettings::DEFAULT_SPD);
-		songsettings.spd = SongSettings::DEFAULT_SPD;
-	}
+	SongSettingsFileLoader *ssfl = new SongSettingsFileLoader(&songsettings);
+  ssfl->load(file);
+  delete ssfl;
 
 	// number of samples
 	uint8_t numsamples;
@@ -1286,13 +1284,10 @@ int Tracker::read_from_file(SDL_RWops *file)
 void Tracker::save_to_file(SDL_RWops *file)
 {
 	SDL_RWwrite(file, "STSONG", sizeof("STSONG") - 1, 1);
-	// write song title
-	const char *songtitle = main_window.song_title.str;
-	size_t len = strlen(songtitle);
-	SDL_RWwrite(file, songtitle, len + 1, 1); // also write null byte
 
-	uint16_t bpmspd = ((uint16_t)songsettings.bpm << 6) | songsettings.spd;
-	SDL_RWwrite(file, &bpmspd, 2, 1);
+  SongSettingsFileLoader *ssfl = new SongSettingsFileLoader(&songsettings);
+  ssfl->save(file);
+  delete ssfl;
 
 	// number of samples
 	uint8_t numsamples = 0;

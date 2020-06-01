@@ -3,60 +3,68 @@
 #include <assert.h>
 #include "Organization.h" // for APP_VERSION
 
-const char *FileLoader::chunkid_strs[] = {
-  "SongSettings",
-  "Sample",
-  "Instrument",
-  "Pattern",
-  "PatSeq",
-};
+std::unordered_map<uint8_t, FileLoader *> FileLoader::ChunkIdMap;
 
-FileLoader::FileLoader(uint8_t mcid, size_t sc) : master_chunkid(mcid), supported_chunksize(sc)
+FileLoader::FileLoader(uint8_t chunkid) : chunkid(chunkid)
 {
-  fileversion[0] = 0; // default with no version string, since file has not been loaded
+  ChunkIdMap[chunkid] = this;
 }
 
 /* TODO from Tracker file loading routine: Handle chunkids that the app
  * doesn't recognize safely - skip them. */
 
-int FileLoader::load(SDL_RWops *file, size_t chunksize, ChunkID chunkid)
+int FileLoader::load(SDL_RWops *file)
 {
-  // include some generic top level debugging code here.
-  assert(chunkid == master_chunkid);
-  assert(fileversion[0] != 0); // fileversion has already been loaded
-  if (chunksize > supported_chunksize)
-    DEBUGLOG(
-        "ChunkID: %s, chunksize $%04lX > supported_chunksize $%04lX! Perhaps your tracker software could use an update?\n",
-        get_chunkid_str(chunkid), chunksize, supported_chunksize);
-  else if (chunksize < supported_chunksize)
-    DEBUGLOG(
-        "ChunkID: %s, chunksize $%04lX < supported_chunksize $%04lX! Perhaps this track was created by an older version of the tracker software; This song was created by v%s, this tracker is v%s \n",
-        get_chunkid_str(chunkid), chunksize, supported_chunksize, fileversion,
-        APP_VERSION);
-
   return 0;
 }
 
-const char *FileLoader::get_chunkid_str(ChunkID cid)
+size_t FileLoader::write (struct SDL_RWops* context, const void* ptr, size_t size, size_t num,
+                        uint32_t *chunksize_counter)
 {
-  assert (cid < NUM_CHUNKIDS);
-  if (cid >= NUM_CHUNKIDS)
-    DEBUGLOG("Unrecognized Chunk ID: $%02x\n", cid);
-  else
-    return chunkid_strs[cid];
+  size_t ret = SDL_RWwrite(context, ptr, size, num);
+  if (ret != num)
+  {
+    DEBUGLOG("Couldn't fully write data; Wrote %d of %d bytes\n", ret * size, num * size);
+  }
+  *chunksize_counter += ret * size;
 }
-
+size_t FileLoader::write (struct SDL_RWops* context, const void* ptr, size_t size, size_t num,
+                        uint16_t *chunksize_counter)
+{
+  size_t ret = SDL_RWwrite(context, ptr, size, num);
+  if (ret != num)
+  {
+    DEBUGLOG("Couldn't fully write data; Wrote %d of %d bytes\n", ret * size, num * size);
+  }
+  *chunksize_counter += ret * size;
+}
 
 // Now with bounds checking :D
 // Note: size includes NULL byte
-void FileLoader::read_str_from_file(SDL_RWops *file, char *str_ptr, int size)
+size_t FileLoader::read_str_from_file(SDL_RWops *file, char *str_ptr, int size)
 {
+  size_t count = 0;
   assert(size > 1); // if it was one, that's only enough room for an empty string!
   do {
     SDL_RWread(file, str_ptr, 1, 1);
+    count++;
   } while ((--size) && *(str_ptr++) != 0);
 
   *str_ptr = 0; // need to write null byte incase we stopped looping cause size barrier was hit
+  return count;
+}
+
+size_t FileLoader::read_str_from_file2(SDL_RWops *file, char *str_ptr, int chunksize, int bufsize)
+{
+  size_t count = 0;
+  assert(chunksize > 0 && bufsize > 1); // if it was one, that's only enough room for an empty string!
+  do {
+    SDL_RWread(file, str_ptr++, 1, 1);
+    count++;
+  } while ((--chunksize) && (--bufsize - 1));
+
+  *str_ptr = 0; // need to write null byte incase we stopped looping cause size barrier was hit
+  return count;
 }
 
 /* Here's a small program to test how this works:

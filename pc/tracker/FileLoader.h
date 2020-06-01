@@ -1,11 +1,28 @@
 #pragma once
 #include <stdint.h>
 #include "SDL.h"
+#include <unordered_map>
+
+/* The FileLoader class works as follows
+Each Module that can be loaded from File contains a class that inherits FileLoader.
+This class identifies with a particular FileLoader::ChunkID.
+
+???
+
+When the GUI app goes to open up the file, a top-level load() is called. This
+function checks for the proper header data, such as FILETYPE string.
+
+Once the header is read, the rest of the file is divided into chunks. Every chunk has
+its own header which is simply chunkID:chunksize.
+
+The top-level loader will read the ID, and use it to call the FileLoader * associated
+with that chunk id.
+*/
 
 class FileLoader
 {
 public:
-  FileLoader(uint8_t mcid, size_t sc);
+  FileLoader(uint8_t chunkid);
   
   enum ChunkID {
     SongSettings=0,
@@ -15,17 +32,18 @@ public:
     PatSeq,
     NUM_CHUNKIDS
   };
+  static std::unordered_map<uint8_t, FileLoader *> ChunkIdMap;
 
-  virtual int load(SDL_RWops *file, size_t chunksize, ChunkID cid);
-  uint8_t master_chunkid;
-  size_t supported_chunksize;
-  
-  static const constexpr int MAX_VERSIONLEN = 15;
-  char fileversion[MAX_VERSIONLEN]; // the embedded version info in the file being loaded
+  virtual int load(SDL_RWops *file);
+  virtual int save(SDL_RWops *file)=0;
+  uint8_t chunkid;
 
-  /* WARNING: no bounds checking!? */
-  static void read_str_from_file(SDL_RWops *file, char *str_ptr, int len);
+  static size_t write (struct SDL_RWops* context, const void* ptr, size_t size, size_t num,
+                        uint32_t *chunksize_counter);
+  static size_t write (struct SDL_RWops* context, const void* ptr, size_t size, size_t num,
+                        uint16_t *chunksize_counter);
 
-  static const char *chunkid_strs[];
-  static const char *get_chunkid_str(ChunkID cid);
+  static size_t read_str_from_file(SDL_RWops *file, char *str_ptr, int size);
+  static size_t read_str_from_file2(SDL_RWops *file, char *str_ptr, int chunksize, int bufsize);
+
 };
