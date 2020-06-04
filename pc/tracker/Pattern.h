@@ -5,6 +5,7 @@
 #include "gui/Clickable_Text.h"
 #include "gui/Button.h"
 #include <vector>
+#include "FileLoader.h"
 /* When a new Song is created. we need to perform a minimal SPC emulator
  * init and load the driver into SPC RAM. Then the user must be able to
  * get their BRR samples into the song. Then edit pattern data. Then play
@@ -135,6 +136,37 @@ struct PatternSequencer
   // track-pattern rows. Like many other data types I have conjured, they
   // will need to later be converted to types that dynamically allocate
   // space. Or allocate max'es every time like is done now.
+};
+
+class PatternFileLoader : public FileLoader
+{
+public:
+  PatternFileLoader(struct Pattern *pat);
+  size_t load(SDL_RWops *file, size_t chunksize);
+  size_t save(SDL_RWops *file);
+
+  enum SubChunkID {
+    coreinfo=0,
+    NUM_SUBCHUNKIDS
+  };
+private:
+  struct Pattern *pat;
+};
+
+class PatternSequencerFileLoader : public FileLoader
+{
+public:
+  PatternSequencerFileLoader(struct PatternSequencer *patseq);
+  size_t load(SDL_RWops *file, size_t chunksize);
+  size_t save(SDL_RWops *file);
+
+  enum SubChunkID {
+    coreinfo=0,
+    name,
+    NUM_SUBCHUNKIDS
+  };
+private:
+  struct PatternSequencer *patseq;
 };
 
 // GUI
