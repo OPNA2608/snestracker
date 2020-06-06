@@ -549,6 +549,9 @@ void Tracker::render_to_apu(bool repeat_pattern/*=false*/)
 		highest_sample = i;
 	}
 
+  /* TODO: Remove instr->used metadata, and render the pattern data to spc first.
+  While rendering pattern data, keep track of which instruments were used. Then
+  upload that data. Remove the instrument metadata used */
 	uint16_t numinstr = 0;
 	uint8_t highest_instr = 0;
 	for (int i=0; i < NUM_INSTR; i++)
@@ -1090,9 +1093,9 @@ void Tracker::reset()
 	main_window.bsawidget.updatebpm();
 	main_window.bsawidget.updatespd();
 
-  ::tracker->patseq.num_entries = 1;
-  ::tracker->patseq.sequence[0] = 0;
-  ::tracker->patseq.patterns[0].used = 1;
+  // ::tracker->patseq.num_entries = 1;
+  // ::tracker->patseq.sequence[0] = 0;
+  // ::tracker->patseq.patterns[0].used = 1;
 }
 
 /* TODO: Add sanitization where necessary */
@@ -1118,121 +1121,20 @@ int Tracker::read_from_file(SDL_RWops *file)
   SongSettingsFileLoader *ssfl = new SongSettingsFileLoader(&songsettings);
   SampleFileLoader *sfl = new SampleFileLoader(samples);
   InstrumentFileLoader *ifl = new InstrumentFileLoader(instruments);
+  PatternFileLoader *pfl = new PatternFileLoader(patseq.patterns);
+  PatternSequencerFileLoader *psfl = new PatternSequencerFileLoader(&patseq);
+
   FileLoader::loadchunks(file);
+
+  delete psfl;
+  delete pfl;
   delete ifl;
   delete sfl;
   delete ssfl;
 
-	/*
+  // update instrument metadata
+  //instruments[pr->instr - 1].used++;
 
-	uint8_t numinstr = 0;
-	SDL_RWread(file, &numinstr, 1, 1);
-	for (int i=0; i < numinstr; i++)
-	{
-		uint8_t idx;
-		SDL_RWread(file, &idx, 1, 1);
-		Instrument *instr = &instruments[idx];
-		// TODO: store/read the instr #
-
-		FileLoader::read_str_from_file(file, instr->name, sizeof(Instrument::name));
-
-		// TODO: Store/Read the instr used. Better yet, calculate it after the
-		// * patterns have been loaded
-
-		// Time to load instrument info
-		SDL_RWread(file, &instr->vol, 1, 1);
-		SDL_RWread(file, &instr->pan, 1, 1);
-		SDL_RWread(file, &instr->srcn, 1, 1);
-		SDL_RWread(file, &instr->adsr.adsr1, 1, 1);
-		SDL_RWread(file, &instr->adsr.adsr2, 1, 1);
-		SDL_RWread(file, &instr->semitone_offset, 1, 1);
-		SDL_RWread(file, &instr->finetune, 1, 1);
-	}
-	
-	// PATTERNS
-	//
-	uint8_t numpatterns = 0;
-
-	SDL_RWread(file, &numpatterns, 1, 1);
-	for (int p=0; p < numpatterns; p++)
-	{
-		uint8_t idx;
-		SDL_RWread(file, &idx, 1, 1);
-		PatternMeta *pm = &patseq.patterns[idx];
-
-		Pattern *pattern = &pm->p;
-		SDL_RWread(file, &pattern->len, 1, 1);
-		for (int t=0; t < MAX_TRACKS; t++)
-		{
-			uint8_t rlecounter = 0;
-			uint8_t a;
-
-			for (int tr=0; tr < pattern->len; tr++)
-			{
-				PatternRow *pr = &pattern->trackrows[t][tr];
-				if (rlecounter)
-					if (--rlecounter >= 0)
-					{
-						continue;
-					}
-
-				SDL_RWread(file, &a, 1, 1);
-				if (a <= 0x7f) // positive
-				{
-					pr->note = a;
-					SDL_RWread(file, &pr->instr, 1, 1);
-					instruments[pr->instr - 1].used++; // update instrument metadata
-					SDL_RWread(file, &pr->vol, 1, 1);
-					SDL_RWread(file, &pr->fx, 1, 1);
-					SDL_RWread(file, &pr->fxparam, 1, 1);
-				}
-				else
-				{
-					if ( a & ( 1 << CBIT_NOTE ) )
-						SDL_RWread(file, &pr->note, 1, 1);
-					//else pr->note = NOTE_NONE;
-
-					if ( a & ( 1 << CBIT_INSTR ) )
-					{
-						SDL_RWread(file, &pr->instr, 1, 1);
-						instruments[pr->instr - 1].used++;
-					}
-					//else pr->instr = 0;
-
-					if ( a & ( 1 << CBIT_VOL ) )
-						SDL_RWread(file, &pr->vol, 1, 1);
-					//else pr->vol = 0;
-
-					if ( a & ( 1 << CBIT_FX ) )
-						SDL_RWread(file, &pr->fx, 1, 1);
-					//else pr->fx = 0;
-
-					if ( a & ( 1 << CBIT_FXPARAM ) )
-						SDL_RWread(file, &pr->fxparam, 1, 1);
-					//else pr->fxparam = 0;
-
-					if ( a & ( 1 << CBIT_RLE_ONLY1 ) )
-					{
-						rlecounter = ( a & ( 1 << CBIT_RLE ) ) ? 2 : 1;
-					}
-					else if ( a & ( 1 << CBIT_RLE ) )
-						SDL_RWread(file, &rlecounter, 1, 1);
-				}
-			}
-		}
-	}
-	// PAttern Sequencer
-	patseq.num_entries = 0; // WARNING: could be dangerous
-	for (int i=0; 1; i++)
-	{
-		rc = SDL_RWread(file, &patseq.sequence[i], 1, 1);
-		if (rc == 0) // EOF
-			break;
-
-		patseq.patterns[patseq.sequence[i]].used++;
-		patseq.num_entries++;
-	}
-*/
 	/* HACKS */
 	/* Since the BPM and SPD widgets do not constantly poll (they normally
 	 * only update graphically when manually altered via +/- buttons, we
@@ -1258,168 +1160,14 @@ void Tracker::save_to_file(SDL_RWops *file)
   InstrumentFileLoader *ifl = new InstrumentFileLoader(instruments);
   ifl->save(file);
   delete ifl;
-/*
-	// PATTERNS
-	// First calculate the number of used patterns in the song. This is not
-	// sequence length, but the number of unique patterns. With that length
-	// calculated, we can allocate the amount of RAM necessary for the
-	// PatternLUT (detailed below comments).
-	uint8_t num_usedpatterns = 0;
 
-	// NOTE: Unlike the render_to_apu, which only exports patterns that are
-	// present in the sequencer, we will check here for ANY patterns that
-	// are not fully blank, whether or not they are present in the sequencer
-	for (uint8_t p=0; p < MAX_PATTERNS; p++)
-	{
-		PatternMeta *pm = &patseq.patterns[p];
-		// NOTE: This logic chunk is duplicated in the next for loop. Wish I
-		// would take time to optimize it BUT shouldn't prematurely do this.
-		// So many more important factors to the tracker that need coding!
-		if (pm->used == 0)
-		{
-			bool hasdata = false;
-			// not in sequencer, but is there data?
-			Pattern *pmp = &pm->p;
-			for (int t=0; t < MAX_TRACKS; t++)
-				for (int tr=0; tr < pmp->len; tr++)
-				{
-					PatternRow *pr = &pmp->trackrows[t][tr];
-					if (pr->note || pr->instr || pr->vol || pr->fx || pr->fxparam)
-					{
-						hasdata = true;
-						break;
-					}
-				}
-			if (!hasdata)
-				continue;
-		}
-		num_usedpatterns++;
-	}
-	SDL_RWwrite(file, &num_usedpatterns, 1, 1);
-	for (uint8_t p=0; p < MAX_PATTERNS; p++)
-	{
-		PatternMeta *pm = &patseq.patterns[p];
-		if (pm->used == 0)
-		{
-			bool hasdata = false;
-			// not in sequencer, but is there data?
-			Pattern *pmp = &pm->p;
-			for (int t=0; t < MAX_TRACKS; t++)
-				for (int tr=0; tr < pmp->len; tr++)
-				{
-					PatternRow *pr = &pmp->trackrows[t][tr];
-					if (pr->note || pr->instr || pr->vol || pr->fx || pr->fxparam)
-					{
-						hasdata = true;
-						break;
-					}
-				}
-			if (!hasdata)
-				continue;
-		}
+  PatternFileLoader *pfl = new PatternFileLoader(patseq.patterns);
+  pfl->save(file);
+  delete pfl;
 
-		SDL_RWwrite(file, &p, 1, 1); // write pattern index
-
-		//pm->used only says whether this pattern is in the pattern sequencer
-		// * or not. It does not check whether the pattern has any data or not.
-		// * That could be done the long-processing way by checking all rows
-		// * manually for any note, instr, vol, fx, or fxparam entries -- or a
-		// * quick processing map could be used, an array where each bit
-		// * represents any of the above fields being present on a row (8 rows
-		// * represented in a byte. it would quicken the check. TODO: For now,
-		// * patterns that are not present in the sequencer will BE LOST!!! In
-		// * the spirit of rapid prototyping, I don't care. Fix it later
-
-		Pattern *pattern = &pm->p;
-
-		SDL_RWwrite(file, &pattern->len, 1, 1); // TODO write code that handles len of 0 == 256
-
-		for (int t=0; t < MAX_TRACKS; t++)
-		{
-			for (int tr=0; tr < pattern->len; tr++)
-			{
-				int ttrr;
-				PatternRow *pr = &pattern->trackrows[t][tr];
-				uint8_t cbyte = 0, rlebyte;
-				// Lookahead: how many empty rows from this one until the next
-				// filled row? If there's only 1 empty row, use RLE_ONLY1
-//#define PATROW_EMPTY(pr) ( pr->note == 0 && pr->instr == 0 && pr->vol == 0 && pr->fx == 0 && pr->fxparam == 0 )
-				for (ttrr=tr+1; ttrr < pattern->len; ttrr++)
-				{
-					PatternRow *row = &pattern->trackrows[t][ttrr];
-					if ( (!(PATROW_EMPTY(row))) || ttrr == (pattern->len - 1))
-					{
-						// we found a filled row or we made it to the end of pattern
-						ttrr -= ( (PATROW_EMPTY(row)) ? 0 : 1);
-						int num_empty = ttrr - tr;
-						if (num_empty == 0)
-							break;
-						else if (num_empty == 1)
-							cbyte |= ( 1<<CBIT_RLE_ONLY1 );
-						else if (num_empty == 2)
-							cbyte |= ( (1<<CBIT_RLE) | (1<<CBIT_RLE_ONLY1) );
-						else
-						{
-							cbyte |= ( 1<<CBIT_RLE );
-							rlebyte = num_empty;
-						}
-
-						break;
-					}
-				}
-
-				if ( tr == 0 && (
-							pr->note == NOTE_NONE &&
-							pr->instr == 0 &&
-							pr->vol == 0 && pr->fx == 0 && pr->fxparam == 0) )
-				{
-					cbyte |= 1<<CBIT;
-				}
-				// Only if every element is filled are we NOT going to use a
-				// special compression byte. so let's check if every element is
-				// filled first.
-				else if (! (
-							pr->note != NOTE_NONE &&
-							pr->instr != 0 &&
-							pr->vol != 0 && pr->fx != 0 && pr->fxparam != 0) )
-				{
-					cbyte |=
-						(pr->note ? ( 1<<CBIT_NOTE ) : 0) |
-						(pr->instr ? ( 1<<CBIT_INSTR ) : 0) |
-						(pr->vol ? ( 1<<CBIT_VOL ) : 0) |
-						(pr->fx ? ( 1<<CBIT_FX ) : 0) |
-						(pr->fxparam ? ( 1<<CBIT_FXPARAM ) : 0);
-				}
-
-				if (cbyte)
-				{
-					cbyte |= ( 1<<CBIT );
-					SDL_RWwrite(file, &cbyte, 1, 1);
-				}
-				// we should now write the actual byte for any data that is
-				// present
-				if (pr->note)
-					SDL_RWwrite(file, &pr->note, 1, 1);
-				if (pr->instr)
-					SDL_RWwrite(file, &pr->instr, 1, 1);
-				if (pr->vol)
-					SDL_RWwrite(file, &pr->vol, 1, 1);
-				if (pr->fx)
-					SDL_RWwrite(file, &pr->fx, 1, 1);
-				if (pr->fxparam)
-					SDL_RWwrite(file, &pr->fxparam, 1, 1);
-				if ( (cbyte & (( 1<<CBIT_RLE ) | ( 1<<CBIT_RLE_ONLY1 )) ) == ( 1<<CBIT_RLE ) )
-					SDL_RWwrite(file, &rlebyte, 1, 1);
-
-				tr = ttrr; // skip over empty rows
-			}
-		}
-	}
-	// PATTERNS END
-
-	// PATTERN SEQUENCER START
-	for (int i=0; i < patseq.num_entries; i++)
-		SDL_RWwrite(file, &patseq.sequence[i], 1, 1); */
+  PatternSequencerFileLoader *psfl = new PatternSequencerFileLoader(&patseq);
+  psfl->save(file);
+  delete psfl;
 }
 /* Define the Packed Pattern Format.
  * For this, I am electing to use the XM packing scheme, with the addition

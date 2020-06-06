@@ -163,12 +163,16 @@ size_t InstrumentFileLoader::load(SDL_RWops *file, size_t chunksize)
   }
 }
 
+/* TODO: integrate chunklen (featured below) into the FileLoader class, and have
+FileLoader::write() automatically update it. Then user just needs to make sure
+they clear the chunklen when calculating a new chunklen */
+
 size_t InstrumentFileLoader::save(SDL_RWops *file)
 {
   for (uint16_t i=0; i < NUM_INSTR; i++)
   {
     struct Instrument *instr = &instruments[i];
-    if (*instr == ::Instrument())
+    if (*instr == ::Instrument()) // empty instrument
       continue;
 
     uint8_t byte;
@@ -176,8 +180,10 @@ size_t InstrumentFileLoader::save(SDL_RWops *file)
     uint16_t chunklen = 0;
     Sint64 chunksize_location, chunkend_location;
 
+    // write this master chunk id
     byte = chunkid;
     SDL_RWwrite(file, &byte, 1, 1);
+    // stub the master chunksize for later writing
     chunksize_location = SDL_RWtell(file);
     SDL_RWwrite(file, &chunklen, 2, 1);
 
@@ -203,10 +209,10 @@ size_t InstrumentFileLoader::save(SDL_RWops *file)
       write(file, &word, 2, 1, &chunklen);
       write(file, instruments[i].name,  word, 1, &chunklen);
     }
+
     chunkend_location = SDL_RWtell(file);
     SDL_RWseek(file, chunksize_location, RW_SEEK_SET);
     SDL_RWwrite(file, &chunklen, 2, 1);
-
     SDL_RWseek(file, chunkend_location, RW_SEEK_SET);
   }
 }

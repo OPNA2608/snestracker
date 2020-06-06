@@ -116,6 +116,8 @@ struct Pattern
   } mem[MAX_TRACKS];*/
 };
 
+/* TODO: have PatternMeta inherit Pattern rather than own */
+
 // Pattern with sequencer meta data
 struct PatternMeta
 {
@@ -138,21 +140,6 @@ struct PatternSequencer
   // space. Or allocate max'es every time like is done now.
 };
 
-class PatternFileLoader : public FileLoader
-{
-public:
-  PatternFileLoader(struct Pattern *pat);
-  size_t load(SDL_RWops *file, size_t chunksize);
-  size_t save(SDL_RWops *file);
-
-  enum SubChunkID {
-    coreinfo=0,
-    NUM_SUBCHUNKIDS
-  };
-private:
-  struct Pattern *pat;
-};
-
 class PatternSequencerFileLoader : public FileLoader
 {
 public:
@@ -162,11 +149,27 @@ public:
 
   enum SubChunkID {
     coreinfo=0,
-    name,
+    Entries,
+    NUM_SUBCHUNKIDS
+  };
+//private:
+  struct PatternSequencer *patseq;
+};
+
+class PatternFileLoader : public FileLoader
+{
+public:
+  PatternFileLoader(struct PatternMeta *patterns);
+  size_t load(SDL_RWops *file, size_t chunksize);
+  size_t save(SDL_RWops *file);
+
+  enum SubChunkID {
+    coreinfo=0,
+    Track,
     NUM_SUBCHUNKIDS
   };
 private:
-  struct PatternSequencer *patseq;
+  struct PatternMeta *patterns;
 };
 
 // GUI

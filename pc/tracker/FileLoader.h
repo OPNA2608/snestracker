@@ -29,7 +29,7 @@ public:
     Sample,
     Instrument,
     Pattern,
-    PatSeq,
+    PatternSequencer,
     NUM_CHUNKIDS
   };
   static std::unordered_map<uint8_t, FileLoader *> ChunkIdMap;
