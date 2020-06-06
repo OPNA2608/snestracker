@@ -1,7 +1,6 @@
 #pragma once
 #include <stdint.h>
 #include "SDL.h"
-#include <unordered_map>
 
 /* The FileLoader class works as follows
 Each Module that can be loaded from File contains a class that inherits FileLoader.
@@ -32,7 +31,7 @@ public:
     PatternSequencer,
     NUM_CHUNKIDS
   };
-  static std::unordered_map<uint8_t, FileLoader *> ChunkIdMap;
+  static FileLoader * ChunkIdMap[NUM_CHUNKIDS];
   static size_t loadchunks(SDL_RWops *file);
 
   virtual size_t load(SDL_RWops *file, size_t chunksize);

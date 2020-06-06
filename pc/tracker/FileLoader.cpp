@@ -3,7 +3,7 @@
 #include <assert.h>
 #include "Organization.h" // for APP_VERSION
 
-std::unordered_map<uint8_t, FileLoader *> FileLoader::ChunkIdMap;
+FileLoader * FileLoader::ChunkIdMap[NUM_CHUNKIDS];
 
 FileLoader::FileLoader(uint8_t chunkid) : chunkid(chunkid)
 {
@@ -29,10 +29,17 @@ size_t FileLoader::loadchunks(SDL_RWops *file)
       break;
     }
 
-    DEBUGLOG("Chunk: %d, size: %d; ", chunkid, chunksize);
-    if (ChunkIdMap.find(chunkid) == ChunkIdMap.end())
+    if (chunkid >= NUM_CHUNKIDS) // this chunkid is not recognized
     {
-      DEBUGLOG("Unrecognized chunk, skipping over.\n");
+      DEBUGLOG("UNRECOGNIZED CHUNK: %d, skipping\n", chunkid);
+      SDL_RWseek(file, chunksize, RW_SEEK_CUR);
+      continue;
+    }
+
+    DEBUGLOG("Chunk: %d, size: %d; ", chunkid, chunksize);
+    if (ChunkIdMap[chunkid] == NULL)
+    {
+      DEBUGLOG("UNRECOGNIZED CHUNK: %d, skipping\n", chunkid);
       SDL_RWseek(file, chunksize, RW_SEEK_CUR);
     }
     else
