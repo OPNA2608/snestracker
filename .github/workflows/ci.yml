@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [windows-latest macos-latest ubuntu-latest]
+
+    steps:
+    - name: Dependencies [Windows]
+      if: ${{ runner.os }} == "Windows"
+      run: |
+        mkdir SDL2 && cd SDL2
+        curl -s 'https://www.libsdl.org/release/SDL2-devel-2.0.12-mingw.tar.gz' | tar -xzof-
+    - name: Dependencies [macOS]
+      if: ${{ runner.os }} == "MacOS"
+      run: |
+        brew install sdl2 boost cmake
+    - name: Dependencies [Linux]
+      if: ${{ runner.os }} == "Linux"
+      run: |
+        sudo apt install libasound2-dev libsdl2-dev libboost-filesystem-dev libgtk2.0-dev cmake
+    - uses: actions/checkout@v2
+    - name: Build submodules
+      run: ./build-submodules.sh
+    - name: make
+      run: make
+
+    - name: What did this generate?
+      run: find .
