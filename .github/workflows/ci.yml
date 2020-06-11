@@ -43,7 +43,7 @@ jobs:
         ./bootstrap.sh
         sudo ./b2 --prefix=/usr/i686-w64-mingw32 --with-system --with-filesystem \
           --user-config=user-config.jam toolset=gcc target-os=windows \
-          variant=debug link=shared threading=multi address-model=64 install
+          variant=debug link=shared threading=multi install
         cd ..
     - name: Dependencies [macOS]
       if: ${{ runner.os == 'MacOS' }}
