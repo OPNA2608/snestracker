@@ -52,13 +52,22 @@ jobs:
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: sudo apt install libasound2-dev libsdl2-dev libboost-filesystem-dev libgtk2.0-dev cmake
 
+    - name: Build submodules [Cross - Windows]
+      if: ${{ matrix.os == 'ubuntu-16.04' }}
+      run: |
+        export prefix=/usr/x86_64-w64-mingw32
+        export CROSS_COMPILE=x86_64-w64-mingw32- 
+        ./build-submodules.sh
     - name: Build submodules [Unix]
       if: ${{ matrix.os != 'ubuntu-16.04' }}
       run: ./build-submodules.sh
 
     - name: Make [Cross - Windows]
       if: ${{ matrix.os == 'ubuntu-16.04' }}
-      run: prefix=/usr/x86_64-w64-mingw32 CROSS_COMPILE=x86_64-w64-mingw32- make
+      run: |
+        export prefix=/usr/x86_64-w64-mingw32
+        export CROSS_COMPILE=x86_64-w64-mingw32- 
+        make
     - name: Make [Unix]
       if: ${{ runner.os != 'Windows' }}
       run: make
