@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [windows-latest macos-latest ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
 
     steps:
     - name: Dependencies [Windows]
