@@ -68,6 +68,8 @@ jobs:
         export prefix=/usr/x86_64-w64-mingw32
         export CROSS_COMPILE=x86_64-w64-mingw32- 
         make
+        cp /usr/x86_64-w64-mingw32/{bin/SDL2.dll,lib/libboost_filesystem.dll} \
+        /usr/lib/gcc/x86_64-w64-mingw32/5.3-posix/{libgcc_s_seh-1.dll,libstdc++-6.dll} pc/bin
     - name: Make [Unix]
       if: ${{ matrix.os != 'ubuntu-16.04' }}
       run: make
@@ -77,10 +79,10 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: snestracker-Windows
-        path: bin
+        path: pc/bin
     - name: Upload Artifact [Unix]
       if: ${{ matrix.os != 'ubuntu-16.04' }}
       uses: actions/upload-artifact@v2
       with:
         name: snestracker-${{ runner.os }}
-        path: bin
+        path: pc/bin
