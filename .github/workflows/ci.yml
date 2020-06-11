@@ -69,8 +69,18 @@ jobs:
         export CROSS_COMPILE=x86_64-w64-mingw32- 
         make
     - name: Make [Unix]
-      if: ${{ runner.os != 'Windows' }}
+      if: ${{ matrix.os != 'ubuntu-16.04' }}
       run: make
 
-    - name: What did this generate?
-      run: find .
+    - name: Upload Artifact [Cross - Windows]
+      if: ${{ matrix.os == 'ubuntu-16.04' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: snestracker-Windows
+        path: bin
+    - name: Upload Artifact [Unix]
+      if: ${{ matrix.os != 'ubuntu-16.04' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: snestracker-${{ runner.os }}
+        path: bin
