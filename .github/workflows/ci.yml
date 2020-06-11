@@ -14,13 +14,13 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      # fail-fast: true
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
 
     steps:
     - name: Dependencies [Windows]
-      if: ${{ runner.os  == "Windows" }}
+      if: ${{ runner.os  == Windows }}
       run: |
         export CWD="$PWD"
         mkdir -p /opt/local/ && cd /opt/local
@@ -28,32 +28,32 @@ jobs:
         ln -s ./SDL*/x86_64-w64-mingw32 ./x86_64-w64-mingw32
         cd "$CWD"
     - name: Dependencies [macOS]
-      if: ${{ runner.os == "MacOS" }}
+      if: ${{ runner.os == MacOS }}
       run: |
         brew install sdl2 boost cmake
     - name: Dependencies [Linux]
-      if: ${{ runner.os == "Linux" }}
+      if: ${{ runner.os == Linux }}
       run: |
         sudo apt install libasound2-dev libsdl2-dev libboost-filesystem-dev libgtk2.0-dev cmake
 
     - uses: actions/checkout@v2
 
     - name: Build submodules [Windows]
-      if: ${{ runner.os == "Windows" }}
+      if: ${{ runner.os == Windows }}
       run: |
         export PATH=/opt/local/x86_64-w64-mingw32/bin:"$PATH"
         ./build-submodules.sh
     - name: Build submodules [Unix]
-      if: ${{ runner.os != "Windows" }}
+      if: ${{ runner.os != Windows }}
       run: ./build-submodules.sh
 
     - name: Make [Windows]
-      if: ${{ runner.os == "Windows" }}
+      if: ${{ runner.os == Windows }}
       run: |
         export PATH=/opt/local/x86_64-w64-mingw32/bin:"$PATH"
         mingw32-make
     - name: Make [Unix]
-      if: ${{ runner.os != "Windows" }}
+      if: ${{ runner.os != Windows }}
       run: make
 
     - name: What did this generate?
