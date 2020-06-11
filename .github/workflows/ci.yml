@@ -34,7 +34,8 @@ jobs:
         cd ..
         
         # Boost
-        curl -s https://sourceforge.net/projects/boost/files/boost/1.72.0/boost_1_72_0.tar.bz2 | tar -jxvf-
+        wget https://sourceforge.net/projects/boost/files/boost/1.72.0/boost_1_72_0.tar.bz2
+        tar -jxvf boost*.tar.bz2
         cd boost_1_72_0/
         echo "using gcc : : x86_64-w64-mingw32-g++ ;" > user-config.jam
         ./bootstrap.sh
