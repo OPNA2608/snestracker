@@ -1,0 +1,92 @@
+name: CI
+
+on: [push]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # fail-fast: true
+      matrix:
+        # ubuntu-16.04 == cross-compilation for Windows
+        os: [ubuntu-16.04, macos-latest, ubuntu-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Dependencies [Cross - Windows]
+      if: ${{ matrix.os == 'ubuntu-16.04' }}
+      run: |
+        sudo apt install mingw-w64 pkg-config
+        
+        # SDL2
+        curl -s http://libsdl.org/release/SDL2-2.0.12.tar.gz | tar -zxvf-
+        cd SDL2-*
+        ./configure --prefix=/usr/i686-w64-mingw32 --host=i686-w64-mingw32 --enable-sdl2-config=no
+        make
+        sudo make install
+        cd ..
+
+        # Boost
+        wget https://sourceforge.net/projects/boost/files/boost/1.72.0/boost_1_72_0.tar.bz2
+        tar -jxvf boost*.tar.bz2
+        cd boost_1_72_0/
+        echo "using gcc : : i686-w64-mingw32-g++ ;" > user-config.jam
+        ./bootstrap.sh
+        sudo ./b2 --prefix=/usr/i686-w64-mingw32 --with-system --with-filesystem \
+          --user-config=user-config.jam toolset=gcc target-os=windows \
+          variant=debug link=shared threading=multi address-model=32 install
+        cd ..
+    - name: Dependencies [macOS]
+      if: ${{ runner.os == 'MacOS' }}
+      run: brew install sdl2 boost cmake
+    - name: Dependencies [Linux]
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      run: sudo apt install libasound2-dev libsdl2-dev libboost-filesystem-dev libgtk2.0-dev cmake
+
+    - name: Build submodules [Cross - Windows]
+      if: ${{ matrix.os == 'ubuntu-16.04' }}
+      run: |
+        export prefix=/usr/i686-w64-mingw32
+        export CROSS_COMPILE=i686-w64-mingw32- 
+        ./build-submodules.sh
+    - name: Build submodules [Unix]
+      if: ${{ matrix.os != 'ubuntu-16.04' }}
+      run: ./build-submodules.sh
+
+    - name: Make [Cross - Windows]
+      if: ${{ matrix.os == 'ubuntu-16.04' }}
+      run: |
+        export prefix=/usr/i686-w64-mingw32
+        export CROSS_COMPILE=i686-w64-mingw32- 
+        sed -i -e 's/x86_64-w64-mingw32/i686-w64-mingw32/g' pc/ext/libjdkmidi/c++/out.Windows/configure
+        make
+        cp /usr/i686-w64-mingw32/{bin/SDL2.dll,lib/libboost_filesystem.dll} \
+        /usr/lib/gcc/i686-w64-mingw32/5.3-posix/{libgcc_s_sjlj-1.dll,libstdc++-6.dll} pc/bin
+        
+        # Binary expects Linux-styled library versioning?
+        mv pc/bin/libgme_m.dll{,.0.0.1}
+    - name: Make [Unix]
+      if: ${{ matrix.os != 'ubuntu-16.04' }}
+      run: make
+    - name: Fix artifact [Linux]
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      run: |
+        # Not all distros keep old versions of Boost around
+        cp /usr/lib/x86_64-linux-gnu/libboost_system.so.1.65.1 pc/bin/
+    - name: Upload Artifact [Cross - Windows]
+      if: ${{ matrix.os == 'ubuntu-16.04' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: snestracker-Windows
+        path: pc/bin
+    - name: Upload Artifact [Unix]
+      if: ${{ matrix.os != 'ubuntu-16.04' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: snestracker-${{ runner.os }}
+        path: pc/bin
